@@ -185,7 +185,8 @@ for epoch in range(num_epochs):
                 resample_rate_in_min, multivariate_mnist, seq_length, labels=vis_C)
    
     # compute mmd2 and, if available, prob density
-    if epoch % eval_freq == 0:
+    if epoch == 0:
+    # if epoch % eval_freq == 0:
         ## how many samples to evaluate with?
         eval_Z = model.sample_Z(eval_size, seq_length, latent_dim, use_time)
         if 'eICU_task' in data:
@@ -255,7 +256,7 @@ for epoch in range(num_epochs):
     try:
         print('%d\t%.2f\t%.4f\t%.4f\t%.5f\t%.0f\t%.2f\t%.2f' % (epoch, t, D_loss_curr, G_loss_curr, mmd2, that_np, pdf_sample, pdf_real))
     except TypeError:       # pdf are missing (format as strings)
-        print('%d\t%.2f\t%.4f\t%.4f\t%.5f\t%.0f\t %s\t %s' % (epoch, t, D_loss_curr, G_loss_curr, mmd2, that_np, pdf_sample, pdf_real))
+        print('%s\t%s\t%s\t%s\t%s\t%s\t %s\t %s' % (epoch, t, D_loss_curr, G_loss_curr, mmd2, that_np, pdf_sample, pdf_real))
 
     ## save trace
     trace.write(' '.join(map(str, [epoch, t, D_loss_curr, G_loss_curr, mmd2, that_np, pdf_sample, pdf_real])) + '\n')
