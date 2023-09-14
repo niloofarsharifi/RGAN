@@ -415,22 +415,42 @@ def resampled_eICU(seq_length=16, resample_rate_in_min=15,
     print('Saved to file!')
     return samples, pids
 
-def sine_wave(seq_length=30, num_samples=28*5*100, num_signals=1,
+# def sine_wave(seq_length=30, num_samples=28*5*100, num_signals=1,
+#         freq_low=1, freq_high=5, amplitude_low = 0.1, amplitude_high=0.9, **kwargs):
+#     ix = np.arange(seq_length) + 1
+#     samples = []
+#     for i in range(num_samples):
+#         signals = []
+#         for i in range(num_signals):
+#             f = np.random.uniform(low=freq_high, high=freq_low)     # frequency
+#             A = np.random.uniform(low=amplitude_high, high=amplitude_low)        # amplitude
+#             # offset
+#             offset = np.random.uniform(low=-np.pi, high=np.pi)
+#             signals.append(A*np.sin(2*np.pi*f*ix/float(seq_length) + offset))
+#         samples.append(np.array(signals).T)
+#     # the shape of the samples is num_samples x seq_length x num_signals
+#     samples = np.array(samples)
+#     return samples
+
+def train_generator(dataset, n_lags=7):
+    dataX = []
+    for i in range(len(dataset)- n_lags -1):
+        a = dataset.iloc[i:(i+n_lags)].values
+        dataX.append(a)
+        # dataY.append(dataset.iloc[i + n_lags].to_numpy())
+    return (np.array(dataX))
+
+def sine_wave(seq_length=7, num_samples=28*5*100, num_signals=1,
         freq_low=1, freq_high=5, amplitude_low = 0.1, amplitude_high=0.9, **kwargs):
-    ix = np.arange(seq_length) + 1
-    samples = []
-    for i in range(num_samples):
-        signals = []
-        for i in range(num_signals):
-            f = np.random.uniform(low=freq_high, high=freq_low)     # frequency
-            A = np.random.uniform(low=amplitude_high, high=amplitude_low)        # amplitude
-            # offset
-            offset = np.random.uniform(low=-np.pi, high=np.pi)
-            signals.append(A*np.sin(2*np.pi*f*ix/float(seq_length) + offset))
-        samples.append(np.array(signals).T)
-    # the shape of the samples is num_samples x seq_length x num_signals
-    samples = np.array(samples)
-    return samples
+	df = pd.read_csv('azure(1).csv')
+	df['timestamp'] =  pd.to_datetime(df['timestamp'])
+	df = df.set_index('timestamp')
+	# df = df.set_index('timestamp')
+	scaler = MinMaxScaler(feature_range=(0, 1))
+	train_scaled = pd.DataFrame(scaler.fit_transform(df), columns=df.columns)
+	TIME_STEPS = 7
+	X_train = train_generator(train_scaled, n_lags = seq_length)	
+	return(X_train)
 
 def periodic_kernel(T, f=1.45/30, gamma=7.0, A=0.1):
     """
