@@ -442,15 +442,28 @@ def train_generator(dataset, n_lags=7):
 
 def sine_wave(seq_length=7, num_samples=28*5*100, num_signals=1,
         freq_low=1, freq_high=5, amplitude_low = 0.1, amplitude_high=0.9, **kwargs):
-	df = pd.read_csv('azure(1).csv')
-	df['timestamp'] =  pd.to_datetime(df['timestamp'])
-	df = df.set_index('timestamp')
-	# df = df.set_index('timestamp')
-	scaler = MinMaxScaler(feature_range=(0, 1))
-	train_scaled = pd.DataFrame(scaler.fit_transform(df), columns=df.columns)
-	TIME_STEPS = 7
-	X_train = train_generator(train_scaled, n_lags = seq_length)	
-	return(X_train)
+	# subsample = np.zeros([len(pivot_df) , 30])
+	df = pd.read_csv('subset_300.csv', index_col = None)
+	df = df[['machine_id' , 'time_stamp' , 'cpu_util_percent']]
+	tmp = df.groupby('machine_id').count().reset_index()
+	ids= tmp[tmp['cpu_util_percent']==300]['machine_id']
+	ids = pd.DataFrame(ids)
+	df = df.merge(ids, on = 'machine_id')
+	sorted_df = df.groupby('machine_id').apply(lambda x: x.sort_values('time_stamp')).reset_index(drop=True)
+	sorted_df['col_index'] = sorted_df.groupby('machine_id').cumcount()
+
+# Pivot the DataFrame
+	pivot_df = sorted_df.pivot(index='machine_id', columns='col_index', values='cpu_util_percent')
+	subsample = np.zeros([len(pivot_df) , 30])
+	for k in range(len(pivot_df)):
+  		for i in range(30):
+    			tmp = []
+    			for j in range(i , i+10):
+      				tmp.append(pivot_df.iloc[k , j])
+    
+   		 	subsample[k , i] = np.mean(tmp)
+	result = np.reshape(subsample , (len(subsample) , 30 ,1))
+	return(result)
 
 def periodic_kernel(T, f=1.45/30, gamma=7.0, A=0.1):
     """
