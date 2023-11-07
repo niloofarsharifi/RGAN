@@ -13,7 +13,8 @@ import eval
 
 from time import time
 from math import floor
-from mmd import rbf_mmd2, median_pairwise_distance, mix_rbf_mmd2_and_ratio
+from mmd import rbf_mmd2, median_pairwise_distance, mix_rbf_mmd2_and_ratio, _mix_rbf_kernel
+
 
 tf.logging.set_verbosity(tf.logging.ERROR)
 
@@ -65,8 +66,7 @@ G_sample = model.generator(Z, **generator_settings, reuse=True, c=CG)
 
 # frequency to do visualisations
 vis_freq = max(14000//num_samples, 1)
-eval_freq = max(7000//num_samples, 1)
-
+eval_freq = 20
 # get heuristic bandwidth for mmd kernel from evaluation samples
 heuristic_sigma_training = median_pairwise_distance(samples['vali'])
 best_mmd2_so_far = 1000
@@ -90,6 +90,7 @@ sigma_opt_vars = [var for var in tf.global_variables() if 'SIGMA_optimizer' in v
 
 sess = tf.Session()
 sess.run(tf.global_variables_initializer())
+# print('samples vali' , median_pairwise_distance(samples['vali']) , '[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]')
 
 vis_Z = model.sample_Z(batch_size, seq_length, latent_dim, use_time)
 if CGAN:
@@ -185,8 +186,8 @@ for epoch in range(num_epochs):
                 resample_rate_in_min, multivariate_mnist, seq_length, labels=vis_C)
    
     # compute mmd2 and, if available, prob density
-    if epoch == 0:
-    # if epoch % eval_freq == 0:
+    # if epoch == 0:
+    if epoch % eval_freq == 0:
         ## how many samples to evaluate with?
         eval_Z = model.sample_Z(eval_size, seq_length, latent_dim, use_time)
         if 'eICU_task' in data:
@@ -220,7 +221,10 @@ for epoch in range(num_epochs):
             sigma_iter += 1
         opt_sigma = sess.run(sigma)
         mmd2, that_np = sess.run(mix_rbf_mmd2_and_ratio(eval_test_real, eval_test_sample,biased=False, sigmas=sigma))
-       
+        # print('eval_test_real' , eval_test_real , '\n')
+        # print('eval_test_sample' , eval_test_sample , '\n')
+
+        # print('sessssssssssssss.runn', sess.run(_mix_rbf_kernel(eval_test_real, eval_test_sample, sigma)))
         ## save parameters
         if mmd2 < best_mmd2_so_far and epoch > 10:
             best_epoch = epoch
@@ -234,12 +238,12 @@ for epoch in range(num_epochs):
         else:
             pdf_sample = 'NA'
             pdf_real = 'NA'
-    else:
-        # report nothing this epoch
-        mmd2 = 'NA'
-        that = 'NA'
-        pdf_sample = 'NA'
-        pdf_real = 'NA'
+    # else:
+    #     # report nothing this epoch
+    #     mmd2 = 'NA'
+    #     that = 'NA'
+    #     pdf_sample = 'NA'
+    #     pdf_real = 'NA'
     
     ## get 'spent privacy'
     if dp:
@@ -277,17 +281,17 @@ trace.flush()
 plotting.plot_trace(identifier, xmax=num_epochs, dp=dp)
 model.dump_parameters(identifier + '_' + str(epoch), sess)
 
-## after-the-fact evaluation
-#n_test = vali.shape[0]      # using validation set for now TODO
-#n_batches_for_test = floor(n_test/batch_size)
-#n_test_eval = n_batches_for_test*batch_size
-#test_sample = np.empty(shape=(n_test_eval, seq_length, num_signals))
-#test_Z = model.sample_Z(n_test_eval, seq_length, latent_dim, use_time)
-#for i in range(n_batches_for_test):
-#    test_sample[i*batch_size:(i+1)*batch_size, :, :] = sess.run(G_sample, feed_dict={Z: test_Z[i*batch_size:(i+1)*batch_size]})
-#test_sample = np.float32(test_sample)
-#test_real = np.float32(vali[np.random.choice(n_test, n_test_eval, replace=False), :, :])
-## we can only get samples in the size of the batch...
-#heuristic_sigma = median_pairwise_distance(test_real, test_sample)
-#test_mmd2, that = sess.run(mix_rbf_mmd2_and_ratio(test_real, test_sample, sigmas=heuristic_sigma, biased=False))
-##print(test_mmd2, that)
+# after-the-fact evaluation
+n_test = vali.shape[0]      # using validation set for now TODO
+n_batches_for_test = floor(n_test/batch_size)
+n_test_eval = n_batches_for_test*batch_size
+test_sample = np.empty(shape=(n_test_eval, seq_length, num_signals))
+test_Z = model.sample_Z(n_test_eval, seq_length, latent_dim, use_time)
+for i in range(n_batches_for_test):
+   test_sample[i*batch_size:(i+1)*batch_size, :, :] = sess.run(G_sample, feed_dict={Z: test_Z[i*batch_size:(i+1)*batch_size]})
+test_sample = np.float32(test_sample)
+test_real = np.float32(vali[np.random.choice(n_test, n_test_eval, replace=False), :, :])
+# we can only get samples in the size of the batch...
+heuristic_sigma = median_pairwise_distance(test_real, test_sample)
+test_mmd2, that = sess.run(mix_rbf_mmd2_and_ratio(test_real, test_sample, sigmas=heuristic_sigma, biased=False))
+print(test_mmd2, that)

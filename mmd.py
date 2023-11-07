@@ -14,6 +14,7 @@ import pdb
 import numpy as np
 
 _eps=1e-8
+# sess = tf.Session()
 
 ################################################################################
 ### Quadratic-time MMD with Gaussian RBF kernel
@@ -26,15 +27,18 @@ def _mix_rbf_kernel(X, Y, sigmas, wts=None):
 
     # debug!
     if len(X.shape) == 2:
+        # print('******')
         # matrix
         XX = tf.matmul(X, X, transpose_b=True)
         XY = tf.matmul(X, Y, transpose_b=True)
         YY = tf.matmul(Y, Y, transpose_b=True)
     elif len(X.shape) == 3:
+        # print('...................')
         # tensor -- this is computing the Frobenius norm
         XX = tf.tensordot(X, X, axes=[[1, 2], [1, 2]])
         XY = tf.tensordot(X, Y, axes=[[1, 2], [1, 2]])
         YY = tf.tensordot(Y, Y, axes=[[1, 2], [1, 2]])
+        # print('XX', XX, '\n', 'XY', XY,'\n', 'YY' , YY)
     else:
         raise ValueError(X)
 
@@ -43,15 +47,16 @@ def _mix_rbf_kernel(X, Y, sigmas, wts=None):
 
     r = lambda x: tf.expand_dims(x, 0)
     c = lambda x: tf.expand_dims(x, 1)
-
+    
     K_XX, K_XY, K_YY = 0, 0, 0
     for sigma, wt in zip(tf.unstack(sigmas, axis=0), wts):
+        # print('wt' , wt , '\n' , 'sigma' , sigma , '\n')
         gamma = 1 / (2 * sigma**2)
         K_XX += wt * tf.exp(-gamma * (-2 * XX + c(X_sqnorms) + r(X_sqnorms)))
         K_XY += wt * tf.exp(-gamma * (-2 * XY + c(X_sqnorms) + r(Y_sqnorms)))
         K_YY += wt * tf.exp(-gamma * (-2 * YY + c(Y_sqnorms) + r(Y_sqnorms)))
 
-    return K_XX, K_XY, K_YY, tf.reduce_sum(wts)
+    return K_XX, K_XY, K_YY, tf.reduce_sum(wts), c(X_sqnorms), gamma, sigma
 
 
 def rbf_mmd2(X, Y, sigma=1, biased=True):
@@ -68,7 +73,7 @@ def rbf_mmd2_and_ratio(X, Y, sigma=1, biased=True):
 
 
 def mix_rbf_mmd2_and_ratio(X, Y, sigmas=(1,), wts=None, biased=True):
-    K_XX, K_XY, K_YY, d = _mix_rbf_kernel(X, Y, sigmas, wts)
+    K_XX, K_XY, K_YY, d , XX, XY , sigm = _mix_rbf_kernel(X, Y, sigmas, wts)
     return _mmd2_and_ratio(K_XX, K_XY, K_YY, const_diagonal=d, biased=biased)
 
 
@@ -103,6 +108,8 @@ def _mmd2_and_ratio(K_XX, K_XY, K_YY, const_diagonal=False, biased=False,
                     min_var_est=_eps):
     mmd2, var_est = _mmd2_and_variance(
         K_XX, K_XY, K_YY, const_diagonal=const_diagonal, biased=biased)
+    # print('///////////////////' , sess.run(_mmd2_and_variance(
+    #     K_XX, K_XY, K_YY, const_diagonal=const_diagonal, biased=biased)))
     ratio = mmd2 / tf.sqrt(tf.maximum(var_est, min_var_est))
     return mmd2, ratio
 
@@ -113,6 +120,7 @@ def _mmd2_and_variance(K_XX, K_XY, K_YY, const_diagonal=False, biased=False):
     ### Get the various sums of kernels that we'll use
     # Kts drop the diagonal, but we don't need to compute them explicitly
     if const_diagonal is not False:
+        # print(';;;;;;;;;;;;;;;;;')
         const_diagonal = tf.cast(const_diagonal, tf.float32)
         diag_X = diag_Y = const_diagonal
         sum_diag_X = sum_diag_Y = m * const_diagonal
@@ -141,6 +149,13 @@ def _mmd2_and_variance(K_XX, K_XY, K_YY, const_diagonal=False, biased=False):
     K_XY_2_sum  = sq_sum(K_XY)
 
     if biased:
+        # print('dddddddddddd')
+        # with tf.Session() as sess:
+        #   init = tf.global_variables_initializer()
+        #   sess.run(init)
+        # print('kt xx sum ' , Kt_XX_sum , '\n')
+        # print('sum diag' , sum_diag_X , '\n')
+
         mmd2 = ((Kt_XX_sum + sum_diag_X) / (m * m)
               + (Kt_YY_sum + sum_diag_Y) / (m * m)
               - 2 * K_XY_sum / (m * m))
@@ -163,7 +178,7 @@ def _mmd2_and_variance(K_XX, K_XY, K_YY, const_diagonal=False, biased=False):
             - dot(Kt_XX_sums, K_XY_sums_1)
             - dot(Kt_YY_sums, K_XY_sums_0))
     )
-
+    
     return mmd2, var_est
 
 
@@ -193,8 +208,11 @@ def median_pairwise_distance(X, Y=None):
         X_sqnorms = einsum('...ij,...ij', X, X)
         Y_sqnorms = einsum('...ij,...ij', Y, Y)
         XY = einsum('iab,jab', X, Y)
+        # print(X_sqnorms , 'ppppppppppp')
+        # print(Y_sqnorms , 'yyyyyyyyyyyy')
     else:
         raise ValueError(X)
 
-    distances = np.sqrt(X_sqnorms.reshape(-1, 1) - 2*XY + Y_sqnorms.reshape(1, -1))
+    distances = np.sqrt(np.maximum(0,(X_sqnorms.reshape(-1, 1) - 2*XY + Y_sqnorms.reshape(1, -1))))
+    # print('distances' , (X_sqnorms.reshape(-1, 1) - 2*XY + Y_sqnorms.reshape(1, -1)))
     return median(distances)
