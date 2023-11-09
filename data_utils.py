@@ -59,6 +59,7 @@ def get_samples_and_labels(settings):
         else:
             norm = False
         if labels is None:
+            print('in spliiiiiiiiiiiiiiiiiiiit' , '\n')
             train, vali, test = split(samples, [0.6, 0.2, 0.2], normalise=norm)
             train_labels, vali_labels, test_labels = None, None, None
         else:
@@ -202,6 +203,7 @@ def split(samples, proportions, normalise=False, scale=False, labels=None, rando
     """
     Return train/validation/test split.
     """
+    print('in spliiiiiiiiiiiiiiiiiiiit 12222222222222' , '\n')
     if random_seed != None:
         random.seed(random_seed)
         np.random.seed(random_seed)
@@ -227,6 +229,8 @@ def split(samples, proportions, normalise=False, scale=False, labels=None, rando
     if normalise:
         if scale: raise ValueError(normalise, scale)        # mutually exclusive
         train, vali, test = normalise_data(train, vali, test)
+        print('shape train va test' , np.shape(train) , np.shape(test))
+        print('\n' , train , '\n')
     elif scale:
         train, vali, test = scale_data(train, vali, test)
     if labels is None:
@@ -248,6 +252,7 @@ def split(samples, proportions, normalise=False, scale=False, labels=None, rando
                 labels_split[label_name] = [train_labels, vali_labels, test_labels]
         else:
             raise ValueError(type(labels))
+        
         return train, vali, test, labels_split
 
 
