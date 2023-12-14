@@ -59,7 +59,7 @@ def get_samples_and_labels(settings):
         else:
             norm = False
         if labels is None:
-            train, vali, test = split(samples, [0.6, 0.2, 0.2], normalise=norm)
+            train, vali, test = split(samples, [0.8, 0.2, 0], normalise=norm)
             train_labels, vali_labels, test_labels = None, None, None
         else:
             train, vali, test, labels_list = split(samples, [0.6, 0.2, 0.2], normalise=norm, labels=labels)
@@ -434,23 +434,29 @@ def resampled_eICU(seq_length=16, resample_rate_in_min=15,
 
 def train_generator(dataset, n_lags=7):
     dataX = []
-    for i in range(len(dataset)- n_lags -1):
+    for i in np.arange(0, len(dataset)- n_lags -1, n_lags):
         a = dataset.iloc[i:(i+n_lags)].values
         dataX.append(a)
         # dataY.append(dataset.iloc[i + n_lags].to_numpy())
     return (np.array(dataX))
 
-def sine_wave(seq_length=7, num_samples=28*5*100, num_signals=1,
+def sine_wave(seq_length=12, num_samples=28*5*100, num_signals=1,
         freq_low=1, freq_high=5, amplitude_low = 0.1, amplitude_high=0.9, **kwargs):
-	df = pd.read_csv('azure(1).csv')
-	df['timestamp'] =  pd.to_datetime(df['timestamp'])
-	df = df.set_index('timestamp')
-	# df = df.set_index('timestamp')
-	scaler = MinMaxScaler(feature_range=(0, 1))
-	train_scaled = pd.DataFrame(scaler.fit_transform(df), columns=df.columns)
-	TIME_STEPS = 7
-	X_train = train_generator(train_scaled, n_lags = seq_length)	
-	return(X_train)
+  df = pd.read_csv('azure(1).csv')
+  df['timestamp'] =  pd.to_datetime(df['timestamp'])
+  df = df.set_index('timestamp')
+  # df = df.set_index('timestamp')
+  scaler = MinMaxScaler(feature_range=(0, 1))
+  train_scaled = pd.DataFrame(scaler.fit_transform(df), columns=df.columns)
+  # TRAIN_LENGTH = round(len(train_scaled)*0.8)
+  # TEST_LENGTH = len(train_scaled) - TRAIN_LENGTH
+  # train = train_scaled[0:TRAIN_LENGTH]
+  # test = train_scaled[TRAIN_LENGTH : ]
+  TIME_STEPS = 12
+  X_train = train_generator(train_scaled, n_lags = 12)
+  # print(np.shape(X_train))
+  # print("&&&&" , len(X_train))	
+  return(X_train)
 
 def periodic_kernel(T, f=1.45/30, gamma=7.0, A=0.1):
     """
